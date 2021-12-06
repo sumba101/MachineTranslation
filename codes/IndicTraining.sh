@@ -55,25 +55,6 @@ mv test dataset
 # lets cd to indicTrans
 cd indicTrans
 # ============
-#cd ../dataset/
-#head train/train.en > temp
-#mv temp train/train.en
-
-#head train/train.hi >temp
-#mv temp train/train.hi
-
-#head dev/dev.en >temp
-#mv temp dev/dev.en
-#head dev/dev.hi >temp
-#mv temp dev/dev.hi
-
-#head test/test.hi >temp
-#mv temp test/test.hi
-#head test/test.en >temp
-#mv temp test/test.en
-
-#cd ../indicTrans
-# ==============================
 # all the data preparation happens in this cell
 exp_dir=../dataset
 src_lang=en

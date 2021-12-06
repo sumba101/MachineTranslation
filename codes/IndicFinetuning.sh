@@ -1,86 +1,46 @@
 mkdir -p /scratch/monilg
 cd /scratch/monilg
 
-rm -r finetuning2
+scp monilg@ada.iiit.ac.in:/share1/monilg/finetuning.zip .
 
-mkdir finetuning2
-cd finetuning2
+unzip -qq finetuning.zip
 
-# clone the repo for running finetuning
-git clone https://github.com/AI4Bharat/indicTrans.git
-cd indicTrans
-# clone requirements repositories
-git clone https://github.com/anoopkunchukuttan/indic_nlp_library.git
-git clone https://github.com/anoopkunchukuttan/indic_nlp_resources.git
-git clone https://github.com/rsennrich/subword-nmt.git
-cd ..
+cd finetuning
 
-# ========================
-#apt install tree
-
-# Install the necessary libraries
-#pip install sacremoses pandas mock sacrebleu tensorboardX pyarrow indic-nlp-library
-# Install fairseq from source
-
-git clone https://github.com/pytorch/fairseq.git
+#git clone https://github.com/pytorch/fairseq.git
 cd fairseq
 # !git checkout da9eaba12d82b9bfc1442f0e2c6fc1b895f4d35d
 pip install --editable ./
 cd ..
 
-# =====================
-# if you want to finetune indic-en models, use the link below
-wget https://storage.googleapis.com/samanantar-public/V0.2/models/en-indic.zip
-unzip -qq en-indic.zip
+mkdir finetunedata
+
+#unzip -qq en-indic.zip
 
 # ======================
 
-tar -xzvf ~/iitb_parallel_normal.tar.gz
+tar -xzvf ~/en_hi_RT_split_fixed.tar.gz
 # ==========================================
+#Remove old dataset
+rm -r dataset/train
+rm -r dataset/dev
+rm -r dataset/test
 
-cp train/train_nopunc.en train/train.en
-cp train/train_nopunc.hi train/train.hi
-
-cp dev/dev_nopunc.en dev/dev.en
-cp dev/dev_nopunc.hi dev/dev.hi
-
-cp test/test_nopunc.en test/test.en
-cp test/test_nopunc.hi test/test.hi
-
-mkdir -p dataset
-mv train dataset
-mv dev dataset
-mv test dataset
+mv train finetunedata
+mv dev finetunedata
+mv test finetunedata
 
 # lets cd to indicTrans
 cd indicTrans
-# ============
-#cd ../dataset/
-#head train/train.en > temp
-#mv temp train/train.en
 
-#head train/train.hi >temp
-#mv temp train/train.hi
-
-#head dev/dev.en >temp
-#mv temp dev/dev.en
-#head dev/dev.hi >temp
-#mv temp dev/dev.hi
-
-#head test/test.hi >temp
-#mv temp test/test.hi
-#head test/test.en >temp
-#mv temp test/test.en
-
-#cd ../indicTrans
 # ==============================
 # all the data preparation happens in this cell
-exp_dir=../dataset
+exp_dir=../finetunedata
 src_lang=en
 tgt_lang=indic
 
 # change this to indic-en, if you have downloaded the indic-en dir or m2m if you have downloaded the indic2indic model
-download_dir=../en-indic
+download_dir=../dataset
 
 train_data_dir=$exp_dir/train
 dev_data_dir=$exp_dir/dev
@@ -93,7 +53,7 @@ echo "Running experiment ${exp_dir} on ${src_lang} to ${tgt_lang}"
 train_processed_dir=$exp_dir/data
 devtest_processed_dir=$exp_dir/data
 
-out_data_dir=$/exp_dir/final_bin
+out_data_dir=$exp_dir/final_bin
 
 mkdir -p $train_processed_dir
 mkdir -p $devtest_processed_dir
@@ -160,11 +120,13 @@ python scripts/concat_joint_data.py $exp_dir/norm $exp_dir/data $src_lang $tgt_l
 python scripts/concat_joint_data.py $exp_dir/norm $exp_dir/data $src_lang $tgt_lang 'dev'
 python scripts/concat_joint_data.py $exp_dir/norm $exp_dir/data $src_lang $tgt_lang 'test'
 
-# use the vocab from downloaded dir
+# remove the vocab from downloaded dir
 cp -r $download_dir/vocab $exp_dir
-
+#rm -r vocab
 
 echo "Applying bpe to the new finetuning data"
+
+# Changing the script
 bash apply_single_bpe_traindevtest_notag.sh $exp_dir
 
 mkdir -p $exp_dir/final
@@ -191,20 +153,43 @@ rm -rf $out_data_dir
 data_dir=$exp_dir/final
 out_data_dir=$exp_dir/final_bin
 
-# rm -rf $out_data_dir
 
 echo "Binarizing data. This will take some time depending on the size of finetuning data"
 fairseq-preprocess --source-lang SRC --target-lang TGT \
  --trainpref $data_dir/train --validpref $data_dir/dev --testpref $data_dir/test \
- --destdir $out_data_dir --workers $num_workers 
-
-# --srcdict $download_dir/final_bin/dict.SRC.txt --tgtdict $download_dir/final_bin/dict.TGT.txt --thresholdtgt 5 --thresholdsrc 5  
-
+ --destdir $out_data_dir --workers $num_workers \
+ --srcdict $download_dir/final_bin/dict.SRC.txt --tgtdict $download_dir/final_bin/dict.TGT.txt --thresholdtgt 5 --thresholdsrc 5  
 
 # ====================================
 # Finetuning the model
 
-fairseq-train  ../dataset/final_bin  --arch transformer  --keep-last-epochs 5 --share-decoder-input-output-embed     --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 1.0     --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 --save-interval=50  --dropout 0.3 --weight-decay 0.0001     --criterion label_smoothed_cross_entropy --label-smoothing 0.1  --save-dir ../dataset/model --skip-invalid-size-inputs-valid-test --update-freq=2 --warmup-init-lr 1e-07 --max-tokens 2048 --fp16
+
+fairseq-train $out_data_dir \
+--max-update=5 \
+--save-interval=1 \
+--share-decoder-input-output-embed \
+--arch=transformer \
+--criterion=label_smoothed_cross_entropy \
+--lr-scheduler=inverse_sqrt \
+--label-smoothing=0.1 \
+--optimizer adam \
+--adam-betas "(0.9, 0.98)" \
+--clip-norm 1.0 \
+--warmup-init-lr 1e-07 \
+--lr 3e-5 \
+--warmup-updates 4000 \
+--dropout 0.2 \
+--save-dir $exp_dir/model \
+--skip-invalid-size-inputs-valid-test \
+--fp16 \
+--update-freq=1 \
+--distributed-world-size 4 \
+--max-tokens 2048 \
+--restore-file ../dataset/model/checkpoint_best.pt \
+--reset-lr-scheduler \
+--reset-meters \
+--reset-dataloader \
+--reset-optimizer
 
 # =======================================================================
 # To test the models after training, you can use joint_translate.sh
@@ -229,13 +214,8 @@ fairseq-train  ../dataset/final_bin  --arch transformer  --keep-last-epochs 5 --
 # here we are translating the english sentences to hindi
 bash joint_translate.sh $exp_dir/test/test.en en_hi_outputs.txt 'en' 'hi' $exp_dir
 
-# ===================================================================
+cp en_hi_outputs.txt ~/finetuned_translated_output.txt
+cp $exp_dir/test/test.en ~/finetuned_source_english.txt
+cp $exp_dir/test/test.hi ~/finetuned_target_hindi.txt
 
 
-# to compute bleu scores for the predicitions with a reference file, use the following command
-# arguments:
-# pred_fname: file that contains model predictions
-# ref_fname: file that contains references
-# src_lang and tgt_lang : the source and target language
-
-bash compute_bleu.sh en_hi_outputs.txt $exp_dir/test/test.hi 'en' 'hi'
