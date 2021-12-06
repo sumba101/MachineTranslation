@@ -1,2 +1,5 @@
-Dataset,Link
-IITB_raw_and_no_punc,https://drive.google.com/file/d/1LTmntFziYzwEbAsZZ7wuNLSf9K-SsT2B/view?usp=sharing
+Dataset,FileName,Link
+Preprocessed IITB parallel dataset (punctuation intact),iitb_prep_norm.tar.gz,https://drive.google.com/file/d/1lc9Z36ZXug4eILcyfwZKfH3y_xt3hHlx/view?usp=sharing
+Preprocessed IITB parallel dataset (punctuation removed),iitb_prep_nopunc.tar.gz,https://drive.google.com/file/d/1_mQDajsV0DBGd4POJoaH4CCxnHNf3VfG/view?usp=sharing
+RichText annotated dataset from Swayam - combined+preprocessed,swayam_rt.tar.gz,https://drive.google.com/file/d/19N51My7MyipOrqIgw4MP9Mse2U9xXKQL/view?usp=sharing
+Handmade sentence level test file from swayam_rt dataset for qualitative analysis,final_test_files.tar.gz,https://drive.google.com/file/d/1n3Qaowx0H1RsF1z5gQ6LCdUrKvXbQgVa/view?usp=sharing
